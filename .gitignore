@@ -1,7 +1,7 @@
-__pycache_
-bin
-include
-lib
-share
+__pycache_/
+bin/
+include/
+lib/
+share/
 
 
