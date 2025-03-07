@@ -8,8 +8,11 @@ Created on Wed Jan 15 19:57:49 2025
 from fastapi import FastAPI
 import pydantic
 from enum import Enum
+from src import user
 
 app = FastAPI()
+
+app.include_router(user.router)
 
 @app.get("/")
 async def root():
