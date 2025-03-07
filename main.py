@@ -9,6 +9,13 @@ from fastapi import FastAPI
 import pydantic
 from enum import Enum
 from src import user
+import os
+import sys
+
+# 处理ubuntu系统中，找不到model的问题
+current_dir = os.path.dirname(__file__)
+file_path = os.path.join(current_dir, 'src', 'user.py')
+sys.path.append(file_path)
 
 app = FastAPI()
 
