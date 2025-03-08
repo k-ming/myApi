@@ -3,5 +3,6 @@ bin/
 include/
 lib/
 share/
-
+.idea/
+venv/
 

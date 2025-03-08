@@ -6,19 +6,19 @@ Created on Wed Jan 15 19:57:49 2025
 """
 
 from fastapi import FastAPI, Depends
-from dependencies import get_query_token, get_token_header
+from .dependencies import get_query_token, get_token_header
 from enum import Enum
-from src import user
-from routers import items
-from internal import admin
+from .src import user
+from .routers import items
+from .internal import admin
 import os
 import sys
 
 # 处理ubuntu系统中，找不到model的问题
-current_dir = os.path.dirname(__file__)
-file_path = os.path.join(current_dir, 'src', 'user.py', 'dependencies', 'get_query_token', 'get_token_header',
-                         'routers', 'items', 'internal', 'admin')
-sys.path.append(file_path)
+# current_dir = os.path.dirname(__file__)
+# file_path = os.path.join(current_dir, 'src', 'user.py', 'dependencies', 'get_query_token', 'get_token_header',
+#                          'routers', 'items', 'internal', 'admin')
+# sys.path.append(file_path)
 
 app = FastAPI(dependencies=[Depends(get_query_token)])
 

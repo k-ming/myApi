@@ -1,8 +1,8 @@
 import inspect
 
 from fastapi import APIRouter, Depends,HTTPException
-from  myApi.dependencies import get_token_header
-
+from ..dependencies import get_token_header
+import os, sys
 
 router = APIRouter(
     prefix="/items",
