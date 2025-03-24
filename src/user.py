@@ -53,8 +53,10 @@ class UserUpdate(UserBase):
     age: int | None = None
     secret_name: str | None = None
 
+dev_host = '148.100.112.145'
+test_host = 'mysql'
 
-sql_url = "mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4".format('root', 'root', 'mysql:3306', 'myApi')
+sql_url = "mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4".format('root', 'root', '%s:3306' % test_host, 'myApi')
 # 注意推上GitHub时host要修改成功mysql容器名称mysql， 因为时容器间通信，dev本地调试时改成148.100.112.145:3306
 engine = create_engine(sql_url, echo=True)
 
