@@ -8,7 +8,7 @@ Created on Wed Jan 15 19:57:49 2025
 from fastapi import FastAPI, Depends
 from .dependencies import get_query_token, get_token_header
 from enum import Enum
-from .src import user, searchModle, requestBody
+from .src import user, searchModle, requestBody, requestExtra
 from .routers import items
 from .internal import admin
 import os
@@ -30,6 +30,7 @@ app.include_router(admin.router,
                    prefix='/admin',
                    dependencies=[Depends(get_token_header)],
                    responses={418: {"description": "I'm a teapot"}, })
+app.include_router(requestExtra.router, prefix='/requestExtra', tags=['requestExtra'])
 
 
 
