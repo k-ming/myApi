@@ -29,18 +29,18 @@ app.include_router(requestBody.router, prefix='/requestBody', tags=['requestBody
 app.include_router(admin.router,
                    prefix='/admin',
                    dependencies=[Depends(get_token_header)],
-                   responses={418: {"description": "I'm a teapot"}, })
+                   responses={418: {"description": "I'm a teapot"}}, tags=['admin'])
 app.include_router(requestExtra.router, prefix='/requestExtra', tags=['requestExtra'])
 
 
 
-@app.get("/")
+@app.get("/", tags=['root'])
 async def root():
     return {"msg": "hello fastapi"}
 
 
 # 路径参数--并指定参数类型
-@app.get("/items/{item_id}")
+@app.get("/items/{item_id}", tags=['root'])
 async def read_item(item_id: int):
     return {'item_id': item_id}
 
@@ -52,7 +52,7 @@ class ModelName(str, Enum):
     lenet = 'lenet'
 
 
-@app.get("/models/{model_name}")
+@app.get("/models/{model_name}", tags=['root'])
 async def get_model(model_name: ModelName):
     if model_name is ModelName.alexnet:
         return {"model_name": model_name, 'msg': "Deep Learning FTW!"}

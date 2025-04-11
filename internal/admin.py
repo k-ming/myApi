@@ -1,8 +1,14 @@
-from fastapi import APIRouter
-
-
+from fastapi import APIRouter, Form
+from pydantic import BaseModel
+from typing import Annotated
 router = APIRouter()
 
-@router.post("/")
-async def update_item(item_id:str):
-    return {"item_id": item_id}
+class UserForm(BaseModel):
+    name: str
+    password: str
+
+class UserPub(BaseModel):
+    name: str
+@router.post("/login", response_model=UserPub)
+def login(data: Annotated[UserForm, Form()]):
+    return data
