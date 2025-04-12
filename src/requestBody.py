@@ -10,7 +10,7 @@ router = APIRouter()
 class Item(BaseModel):
     name: str
     description: str | None = Field(default=None, title="The description of the item", alias="description", max_length=300)
-    price: float =Field(gt=0, title="The price of the item", alias="price", max_length=100)
+    price: float = Field(gt=10, title="The price of the item", alias="price", le=100)
     tax: float | None = None
 
 
