@@ -4,5 +4,6 @@ include/
 lib/
 share/
 .idea/
-venv/
+.venv
+/venv
 
