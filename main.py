@@ -9,16 +9,11 @@ from fastapi import FastAPI, Depends
 from .dependencies import get_query_token, get_token_header
 from enum import Enum
 from .src import user, searchModle, requestBody, requestExtra
-from .routers import items
+from .routers import items,files
 from .internal import admin
 import os
 import sys
 
-# 处理ubuntu系统中，找不到model的问题
-# current_dir = os.path.dirname(__file__)
-# file_path = os.path.join(current_dir, 'src', 'user.py', 'dependencies', 'get_query_token', 'get_token_header',
-#                          'routers', 'items', 'internal', 'admin')
-# sys.path.append(file_path)
 
 app = FastAPI(dependencies=[Depends(get_query_token)])
 
@@ -28,9 +23,10 @@ app.include_router(searchModle.router, prefix='/searchAdd')
 app.include_router(requestBody.router, prefix='/requestBody', tags=['requestBody'])
 app.include_router(admin.router,
                    prefix='/admin',
-                   dependencies=[Depends(get_token_header)],
+                   # dependencies=[Depends(get_token_header)],
                    responses={418: {"description": "I'm a teapot"}}, tags=['admin'])
 app.include_router(requestExtra.router, prefix='/requestExtra', tags=['requestExtra'])
+app.include_router(files.router, prefix="/file", tags=['files'])
 
 
 
