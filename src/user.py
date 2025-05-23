@@ -66,12 +66,12 @@ class UserUpdate(UserBase):
     secret_name: str | None = None
 
 
-dev_host = '148.100.112.145'
+dev_host = '54.183.252.53'
 test_host = 'mysql'
 
-sql_url = "mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4".format('test', '123456', '%s:3306' % test_host, 'myApi')
+sql_url = "mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4".format('test', '123456', '%s:3306' % dev_host, 'myApi')
 # 注意推上GitHub时host要修改成功mysql容器名称mysql， 因为时容器间通信，dev本地调试时改成148.100.112.145:3306
-engine = create_engine(sql_url, echo=True)
+engine = create_engine(sql_url, echo=True, pool_size=20, max_overflow=10, pool_recycle=3600) # 设置链接池大小，最大溢出数，回收时长
 
 
 def create_db_and_tables():
@@ -101,10 +101,19 @@ def create_user(user: UserCreate, session: SessionDep) -> User:
     :return: 用户model
     """
     db_user = User.model_validate(user)
-    session.add(db_user)
-    session.commit()
-    session.refresh(db_user)
-    return db_user
+    try:
+        session.add(db_user)
+        session.commit()
+        session.refresh(db_user)
+        return db_user
+    except Exception as e: # 增加try, 捕获丢失链接异常，重试
+        if 'Lost connection ' in str(e):
+            session.add(db_user)
+            session.commit()
+            session.refresh(db_user)
+            return db_user
+        raise e
+
 
 
 @router.get("/users/", tags=["users"], response_model=list[UserPub])
