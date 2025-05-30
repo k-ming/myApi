@@ -13,9 +13,15 @@ from .routers import items,formFile
 from .internal import admin
 import os
 import sys
-
+from starlette.staticfiles import StaticFiles
 
 app = FastAPI(dependencies=[Depends(get_query_token)])
+static_path = os.path.join(os.path.dirname(__file__), "static") # 使用os.path.join获取
+# print(static_path)
+app.mount("/static", StaticFiles(directory=static_path), name="static") # 挂载静态文件
+# 修改doc使用的静态文件
+sys.modules["fastapi.openapi.docs"].get_swagger_ui_html.__kwdefaults__["swagger_js_url"] = "/static/swagger-ui-bundle.js"
+sys.modules["fastapi.openapi.docs"].get_swagger_ui_html.__kwdefaults__["swagger_css_url"] = "/static/swagger-ui.css"
 
 app.include_router(user.router)
 app.include_router(items.router)
@@ -23,7 +29,7 @@ app.include_router(searchModle.router, prefix='/searchAdd')
 app.include_router(requestBody.router, prefix='/requestBody', tags=['requestBody'])
 app.include_router(admin.router,
                    prefix='/admin',
-                   # dependencies=[Depends(get_token_header)],
+                   dependencies=[Depends(get_token_header)],
                    responses={418: {"description": "I'm a teapot"}}, tags=['admin'])
 app.include_router(requestExtra.router, prefix='/requestExtra', tags=['requestExtra'])
 app.include_router(formFile.router, prefix="/formFile", tags=['Form'])
@@ -36,7 +42,7 @@ async def root():
 
 
 # 路径参数--并指定参数类型
-@app.get("/items/{item_id}", tags=['root'])
+@app.get("/{item_id}", tags=['root'])
 async def read_item(item_id: int):
     return {'item_id': item_id}
 
