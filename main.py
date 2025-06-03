@@ -8,19 +8,20 @@ Created on Wed Jan 15 19:57:49 2025
 from fastapi import FastAPI, Depends
 from .dependencies import get_query_token, get_token_header
 from enum import Enum
-from .src import user, searchModle, requestBody, requestExtra
-from .routers import items
+from .src import user, searchModle, requestBody, requestExtra, requestFormData
+from .routers import items,formFile
 from .internal import admin
 import os
 import sys
-
-# 处理ubuntu系统中，找不到model的问题
-# current_dir = os.path.dirname(__file__)
-# file_path = os.path.join(current_dir, 'src', 'user.py', 'dependencies', 'get_query_token', 'get_token_header',
-#                          'routers', 'items', 'internal', 'admin')
-# sys.path.append(file_path)
+from starlette.staticfiles import StaticFiles
 
 app = FastAPI(dependencies=[Depends(get_query_token)])
+static_path = os.path.join(os.path.dirname(__file__), "static") # 使用os.path.join获取
+# print(static_path)
+app.mount("/static", StaticFiles(directory=static_path), name="static") # 挂载静态文件
+# 修改doc使用的静态文件
+sys.modules["fastapi.openapi.docs"].get_swagger_ui_html.__kwdefaults__["swagger_js_url"] = "/static/swagger-ui-bundle.js"
+sys.modules["fastapi.openapi.docs"].get_swagger_ui_html.__kwdefaults__["swagger_css_url"] = "/static/swagger-ui.css"
 
 app.include_router(user.router)
 app.include_router(items.router)
@@ -29,18 +30,19 @@ app.include_router(requestBody.router, prefix='/requestBody', tags=['requestBody
 app.include_router(admin.router,
                    prefix='/admin',
                    dependencies=[Depends(get_token_header)],
-                   responses={418: {"description": "I'm a teapot"}, })
+                   responses={418: {"description": "I'm a teapot"}}, tags=['admin'])
 app.include_router(requestExtra.router, prefix='/requestExtra', tags=['requestExtra'])
+app.include_router(formFile.router, prefix="/formFile", tags=['Form'])
+app.include_router(requestFormData.router, prefix='/requestFormData', tags=['Form'])
 
 
-
-@app.get("/")
+@app.get("/", tags=['root'])
 async def root():
     return {"msg": "hello fastapi"}
 
 
 # 路径参数--并指定参数类型
-@app.get("/items/{item_id}")
+@app.get("/{item_id}", tags=['root'])
 async def read_item(item_id: int):
     return {'item_id': item_id}
 
@@ -52,7 +54,7 @@ class ModelName(str, Enum):
     lenet = 'lenet'
 
 
-@app.get("/models/{model_name}")
+@app.get("/models/{model_name}", tags=['root'])
 async def get_model(model_name: ModelName):
     if model_name is ModelName.alexnet:
         return {"model_name": model_name, 'msg': "Deep Learning FTW!"}

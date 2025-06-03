@@ -7,10 +7,11 @@ Created on Wed Feb 26 01:37:22 2025
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pygments.lexer import default
+# from pygments.lexer import default
 from sqlmodel import Field, SQLModel, create_engine, select, Session
 from typing import Annotated
-import json
+
+# import json
 
 router = APIRouter()
 
@@ -43,6 +44,17 @@ class UserCreate(UserBase):
     定义UserCreate数据模型，继承自UserBase， 它继承了 name, age字段，且声明了必选字段secret_name， 用于验证客户数据的模型
     """
     secret_name: str
+    type: str | None = Field(default='user')
+    model_config = {
+        'json_schema_extra': {
+            'example': {
+                'name': 'user',
+                'age': 18,
+                'secret_name': 'user',
+                'type': 'manage'
+            }
+        }
+    }
 
 
 class UserUpdate(UserBase):
@@ -53,12 +65,13 @@ class UserUpdate(UserBase):
     age: int | None = None
     secret_name: str | None = None
 
-dev_host = '148.100.112.145'
+
+dev_host = '54.183.252.53'
 test_host = 'mysql'
 
-sql_url = "mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4".format('test', '123456', '%s:3306' % test_host, 'myApi')
+sql_url = "mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4".format('test', '123456', '%s:3306' % dev_host, 'myApi')
 # 注意推上GitHub时host要修改成功mysql容器名称mysql， 因为时容器间通信，dev本地调试时改成148.100.112.145:3306
-engine = create_engine(sql_url, echo=True)
+engine = create_engine(sql_url, echo=True, pool_size=20, max_overflow=10, pool_recycle=3600) # 设置链接池大小，最大溢出数，回收时长
 
 
 def create_db_and_tables():
@@ -88,10 +101,19 @@ def create_user(user: UserCreate, session: SessionDep) -> User:
     :return: 用户model
     """
     db_user = User.model_validate(user)
-    session.add(db_user)
-    session.commit()
-    session.refresh(db_user)
-    return db_user
+    try:
+        session.add(db_user)
+        session.commit()
+        session.refresh(db_user)
+        return db_user
+    except Exception as e: # 增加try, 捕获丢失链接异常，重试
+        if 'Lost connection ' in str(e):
+            session.add(db_user)
+            session.commit()
+            session.refresh(db_user)
+            return db_user
+        raise e
+
 
 
 @router.get("/users/", tags=["users"], response_model=list[UserPub])
@@ -140,8 +162,9 @@ def update_user(user_id: int, user: UserUpdate, session: SessionDep) -> UserPub:
     session.refresh(user_db)
     return user_db
 
+
 @router.delete("/users/{user_id}", tags=["users"])
-def delete_user(user_id: int, session: SessionDep) :
+def delete_user(user_id: int, session: SessionDep):
     """
     删除单个用户, 无响应model
     :param user_id:
