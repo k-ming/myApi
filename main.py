@@ -14,8 +14,11 @@ from .internal import admin
 import os
 import sys
 from starlette.staticfiles import StaticFiles
+from .depends import pyDepends, pyDependYield
+from fastapi.security import OAuth2PasswordBearer
 
-app = FastAPI(dependencies=[Depends(get_query_token)])
+OAuth2 = OAuth2PasswordBearer(tokenUrl="token")
+app = FastAPI(dependencies=[Depends(get_query_token), Depends(OAuth2)])
 static_path = os.path.join(os.path.dirname(__file__), "static") # 使用os.path.join获取
 # print(static_path)
 app.mount("/static", StaticFiles(directory=static_path), name="static") # 挂载静态文件
@@ -34,6 +37,9 @@ app.include_router(admin.router,
 app.include_router(requestExtra.router, prefix='/requestExtra', tags=['requestExtra'])
 app.include_router(formFile.router, prefix="/formFile", tags=['Form'])
 app.include_router(requestFormData.router, prefix='/requestFormData', tags=['Form'])
+app.include_router(pyDepends.router)
+app.include_router(pyDependYield.router)
+
 
 
 @app.get("/", tags=['root'])
