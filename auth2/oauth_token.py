@@ -50,7 +50,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-router = APIRouter()
+router = APIRouter(
+    tags=["权限验证"],
+)
 
 
 def verify_password(plain_password, hashed_password):
