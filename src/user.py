@@ -7,14 +7,10 @@ Created on Wed Feb 26 01:37:22 2025
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-# from pygments.lexer import default
 from sqlmodel import Field, SQLModel, create_engine, select, Session
 from typing import Annotated
 
-# import json
-
 router = APIRouter()
-
 
 class UserBase(SQLModel):
     """
@@ -66,7 +62,7 @@ class UserUpdate(UserBase):
     secret_name: str | None = None
 
 
-dev_host = '54.183.252.53'
+dev_host = 'ec2-78-12-183-10.mx-central-1.compute.amazonaws.com'
 test_host = 'mysql'
 
 sql_url = "mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4".format('test', '123456', '%s:3306' % dev_host, 'myApi')

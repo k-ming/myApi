@@ -14,14 +14,19 @@ from .internal import admin
 import os
 import sys
 from starlette.staticfiles import StaticFiles
+from .depends import pyDepends, pyDependYield
+from .auth2 import oauth_token
 
-app = FastAPI(dependencies=[Depends(get_query_token)])
-static_path = os.path.join(os.path.dirname(__file__), "static") # 使用os.path.join获取
-# print(static_path)
-app.mount("/static", StaticFiles(directory=static_path), name="static") # 挂载静态文件
+
+app = FastAPI(dependencies=[])
+
+# fastapi 挂载静态文件目录
+app.mount("/static", StaticFiles(directory="myApi/static"), name="static") # 挂载静态文件
+# 修改doc使用的静态文件
 # 修改doc使用的静态文件
 sys.modules["fastapi.openapi.docs"].get_swagger_ui_html.__kwdefaults__["swagger_js_url"] = "/static/swagger-ui-bundle.js"
 sys.modules["fastapi.openapi.docs"].get_swagger_ui_html.__kwdefaults__["swagger_css_url"] = "/static/swagger-ui.css"
+
 
 app.include_router(user.router)
 app.include_router(items.router)
@@ -34,6 +39,10 @@ app.include_router(admin.router,
 app.include_router(requestExtra.router, prefix='/requestExtra', tags=['requestExtra'])
 app.include_router(formFile.router, prefix="/formFile", tags=['Form'])
 app.include_router(requestFormData.router, prefix='/requestFormData', tags=['Form'])
+app.include_router(pyDepends.router)
+app.include_router(pyDependYield.router)
+app.include_router(oauth_token.router)
+
 
 
 @app.get("/", tags=['root'])
