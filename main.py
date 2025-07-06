@@ -5,18 +5,20 @@ Created on Wed Jan 15 19:57:49 2025
 @author: hb32366
 """
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
+
+import subapp
 from .dependencies import get_query_token, get_token_header
 from enum import Enum
 from .src import user, searchModle, requestBody, requestExtra, requestFormData
 from .routers import items,formFile
 from .internal import admin
-import os
 import sys
 from starlette.staticfiles import StaticFiles
 from .depends import pyDepends, pyDependYield
 from .auth2 import oauth_token
-
+import time
+from .subapp import  subapi # 引入子应用
 
 app = FastAPI(dependencies=[])
 
@@ -27,6 +29,8 @@ app.mount("/static", StaticFiles(directory="myApi/static"), name="static") # 挂
 sys.modules["fastapi.openapi.docs"].get_swagger_ui_html.__kwdefaults__["swagger_js_url"] = "/static/swagger-ui-bundle.js"
 sys.modules["fastapi.openapi.docs"].get_swagger_ui_html.__kwdefaults__["swagger_css_url"] = "/static/swagger-ui.css"
 
+# 挂载子应用
+app.mount("/subapp", subapi)
 
 app.include_router(user.router)
 app.include_router(items.router)
@@ -71,3 +75,12 @@ async def get_model(model_name: ModelName):
         return {"model_name": model_name, "msg": "LeCNN all the images"}
 
     return {"model_name": model_name, "msg": "Have some residuals"}
+
+
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    process_time = time.perf_counter() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
