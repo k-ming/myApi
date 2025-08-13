@@ -10,7 +10,7 @@ from fastapi import FastAPI, Depends, Request
 import subapp
 from .dependencies import get_query_token, get_token_header
 from enum import Enum
-from .src import user, searchModle, requestBody, requestExtra, requestFormData
+from .src import user, searchModle, requestBody, requestExtra, requestFormData, invoiceCallBack
 from .routers import items,formFile
 from .internal import admin
 import sys
@@ -46,6 +46,7 @@ app.include_router(requestFormData.router, prefix='/requestFormData', tags=['For
 app.include_router(pyDepends.router)
 app.include_router(pyDependYield.router)
 app.include_router(oauth_token.router)
+app.include_router(invoiceCallBack.router, prefix='/Invoice', tags=['开发票回调'])
 
 
 
