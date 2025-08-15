@@ -9,7 +9,7 @@ from fastapi.encoders import jsonable_encoder
 
 router = APIRouter(
     prefix="/items",
-    tags=["items"],
+    tags=["参数"],
     # dependencies=[Depends(get_token_header)],
     responses={404: {"description": "Not found"}},
 )
@@ -20,7 +20,7 @@ fake_items_db = {"plumbus": {"name": "Plumbus"}, "gun": {"name": "Portal Gun"}}
 async def read_items():
     return fake_items_db
 
-@router.get("/{item_id}", deprecated=True)
+@router.get("/{item_id}", deprecated=True, name="路径参数")
 async def read_item(item_id: str):
     """
     - "item_id" read item by item_id
@@ -37,6 +37,7 @@ async def read_item(item_id: str):
             summary="Update an item",
             # description="update an item with a item_id",
             response_description="updated item response",
+            name="查询参数"
             )
 async def update_item(item_id: str):
     """
