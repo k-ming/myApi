@@ -2,7 +2,8 @@
 ## 一、 启动方式
 ### 1、使用 unicorn 启动
 ```
-# 需要从项目最外层启动，否则会报错 ImportError: attempted relative import with no known parent package 可参考：https://stackoverflow.com/questions/76939674/fastapi-attempted-relative-import-beyond-top-level-package
+需要从项目最外层启动，否则会报错 ImportError: attempted relative import with no known parent package 
+可参考：https://stackoverflow.com/questions/76939674/fastapi-attempted-relative-import-beyond-top-level-package
 uvicorn myApi.main:app
 ```
 ### 2、使用fastapi 启动 
@@ -90,7 +91,7 @@ async def read_book1(q: str | None = None):
         return book_db.update({"q": q})
     return books
 ```
-- FastAPI 附加的条件约束 Query, 可加入支持的条件约束，比如字符串的最大长度，最小长度，注意：下面这种写法可能不会生效，跟FastAPI版本，python版本有关，可以用type的附加注解Annotated来实现
+- FastAPI 附加的条件约束 Query, 可加入支持的条件约束，比如字符串的最大长度，最小长度，注意：下面这种写法可能不会生效，跟FastAPI版本，python版本有关，可以用typing的附加注解Annotated来实现
 ```python
 @router2.get("/book2/", name="参数的条件约束Query")
 async def read_book2(q: Union[str, None] = Query(Max_length=5, Min_length=1)):
@@ -154,8 +155,31 @@ async def read_book5(q: Optional[str] = Query(title='标题', alias="author", de
     return books
 
 ```
+### 5、查询参数模型，使用Pedantic将一组相关的参数封装在一起，一次性声明和验证
+- Pydantic.BaseModel 基础模型类，声明的模型需要继承它， Pydantic.Field 模型参数校约束方法
+- typing.Literal 表示从列表中选择， 可指定默认选中值
+- model_config = {"extra": "forbid"} 表示禁止额外惨呼
+```python
+class FilterParams(BaseModel):
+    limit: int = Field(100, gt=0, le=100)
+    offset: int = Field(0, gt=0)
+    order_by: Literal["created_at", "updated_at"] = "created_at" # 检查特殊类型注解
+    tags: list[str] = []
+    model_config = {"extra": "forbid"} # 禁止额外的参数
+```
+- 使用Annotated附加额外元数据，用Query()标记这是一组查询参数, 他们将以?limit=100&offset=0&order_by=created_at的形式拼接在url后面
+```python
+@router.get('/items')
+async def read_items(filter_query: Annotated[FilterParams, Query()] ):
+    """
+    :param filter_query: 特殊类型注解 Annotated [T, x]
+    :return:
+    """
+    return filter_query
+```
+- model_config = {"extra": "forbid"} 禁止拼接额外的数据，如果在URL后面拼接未被定义的字段，会提示非法请求 
 
-### 5、路径参数与数值校验
+### 6、路径参数与数值校验
 - Path约束与Query类似，主要是对数值型数据做验证，需要注意的是，路径参数是必须的且默认是字符串类型，即使使用Optional[int]声明了默认值None，可以是使用...来表示必填
 - ge 大于等于， le小于等于
 ```python
@@ -236,7 +260,7 @@ def read_item(item_id: int = Path(title="标题", description="Path约束的元�
 async def create_item(item_id: int, *,  name: str):
     return {"item_id": item_id, "name": name}
 ```
-### 6、拓展
+### 7、拓展
 - typing中Union、Optional、Annotated的区别
 - >Union[str, int] 联合类型，表示可以是str或者int类型
 - >Optional[str] 语法糖，表示可是str类型或者None 等价于 Union[str, None]
@@ -258,3 +282,7 @@ if __name__ == "__main__":
 - > 输出结果：1 2 3 (4, 5, 6) 15 25 {'extract1': 33, 'extract2': 34}
 - > 注意：默认值参数c没有使用关键字传参数也是可以的，而且只能使用关键字传参数，因为python有默认值的参数只能放在无默认值的参数之后
   > 位置参数d位于 / * 之间，他虽然是位置参数，但是也可以用关键字传参数
+## 三、请求体
+### 1、多个参数
+### 2、字段
+### 3、嵌套模型

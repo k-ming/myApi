@@ -8,9 +8,9 @@ from pydantic import BaseModel, Field
 
 router = APIRouter(
     prefix="/search_model",
-    tags=["search_model"],
+    tags=["查询参数模型"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(get_token_header)],
+    # dependencies=[Depends(get_token_header)],
 )
 
 class FilterParams(BaseModel):
