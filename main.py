@@ -7,18 +7,18 @@ Created on Wed Jan 15 19:57:49 2025
 
 from fastapi import FastAPI, Depends, Request
 
-import subapp
-from .dependencies import get_query_token, get_token_header
+from .dependencies import get_token_header
 from enum import Enum
-from .src import user, searchModle, requestBody, requestExtra, requestFormData, invoiceCallBack
-from .routers import items,formFile
+from .src import user, requestBody, requestExtra, requestFormData, invoiceCallBack
+import routers
+from .routers import searchModle, formFile
 from .internal import admin
 import sys
 from starlette.staticfiles import StaticFiles
 from .depends import pyDepends, pyDependYield
 from .auth2 import oauth_token
 import time
-from .subapp import  subapi # 引入子应用
+from .subapp import subapi  # 引入子应用
 
 app = FastAPI(dependencies=[])
 
@@ -33,7 +33,9 @@ sys.modules["fastapi.openapi.docs"].get_swagger_ui_html.__kwdefaults__["swagger_
 app.mount("/subapp", subapi)
 
 app.include_router(user.router)
-app.include_router(items.router)
+app.include_router(routers.router)
+app.include_router(routers.router2)
+app.include_router(routers.router3)
 app.include_router(searchModle.router, prefix='/searchAdd')
 app.include_router(requestBody.router, prefix='/requestBody', tags=['requestBody'])
 app.include_router(admin.router,

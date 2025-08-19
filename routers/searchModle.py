@@ -1,10 +1,10 @@
-'''
-查询参数模型
-'''
 from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
-from ..dependencies import get_token_header
+from dependencies import get_token_header
 from pydantic import BaseModel, Field
+"""
+查询参数模型
+"""
 
 router = APIRouter(
     prefix="/search_model",
