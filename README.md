@@ -94,7 +94,7 @@ async def read_book1(q: str | None = None):
 - FastAPI 附加的条件约束 Query, 可加入支持的条件约束，比如字符串的最大长度，最小长度，注意：下面这种写法可能不会生效，跟FastAPI版本，python版本有关，可以用typing的附加注解Annotated来实现
 ```python
 @router2.get("/book2/", name="参数的条件约束Query")
-async def read_book2(q: Union[str, None] = Query(Max_length=5, Min_length=1)):
+async def read_book2(q: Union[str, None] = Query(max_length=5, min_length=1)):
     """
     - param q: 使用FastAPI.Query 设置默认值，约束条件，[最大长度5, 最小长度1, 在部分FastAPI版本中不生效]
     """
@@ -158,7 +158,7 @@ async def read_book5(q: Optional[str] = Query(title='标题', alias="author", de
 ### 5、查询参数模型，使用Pedantic将一组相关的参数封装在一起，一次性声明和验证
 - Pydantic.BaseModel 基础模型类，声明的模型需要继承它， Pydantic.Field 模型参数校约束方法
 - typing.Literal 表示从列表中选择， 可指定默认选中值
-- model_config = {"extra": "forbid"} 表示禁止额外惨呼
+- model_config = {"extra": "forbid"} 表示禁止额外参数
 ```python
 class FilterParams(BaseModel):
     limit: int = Field(100, gt=0, le=100)
@@ -268,7 +268,7 @@ async def create_item(item_id: int, *,  name: str):
 - python中入参的顺序、位置参数、关键字参数的用法，口诀：/ * 分两头，arg收位置，kwargs收键值
 - > / 左边的参数只能用位置传参
 - > 在 / 和 * 之间的参数，即能位置传参，也能关键字传参
-- > 在 * 以后的智能用关键字传参， 如 a=10
+- > 在 * 以后的只能用关键字传参， 如 a=10
 - > *args 捕获多余的位置参数，并形成元组 
 - > **kwargs 捕获多余的关键字参数，形成字典
 ```python
@@ -280,8 +280,8 @@ if __name__ == "__main__":
     union_param(1,2,3,4,5,6, d=15, e=25, extract1=33, extract2=34)
 ```
 - > 输出结果：1 2 3 (4, 5, 6) 15 25 {'extract1': 33, 'extract2': 34}
-- > 注意：默认值参数c没有使用关键字传参数也是可以的，而且只能使用关键字传参数，因为python有默认值的参数只能放在无默认值的参数之后
-  > 位置参数d位于 / * 之间，他虽然是位置参数，但是也可以用关键字传参数
+- > 注意：默认值参数c没有使用关键字传参数也是可以的，而且只能使用位置传参数，因为python中有默认值的参数只能放在无默认值的参数之后，不能写成union_param(1,2,c=3,4,5,6...）
+  > 位置参数d位于 / * 之间，他虽然是位置参数，但是也可以用关键字传参数，比如args后面的d可以这样传参union_param(1,2,c=3,4,5,6,d=15）,如果d和e都使用位置传参，会被收入arg中，输出元组
 ## 三、请求体
 ### 1、多个参数
 ### 2、字段
