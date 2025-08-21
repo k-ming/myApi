@@ -38,7 +38,7 @@ def receive_invoice_event(invoice_id: str, body: InvoiceEvent):
 @invoice_callBack.post("{$callback_url}/Invoice/get/{$request.body.id}", response_model=InvoiceEventReceived)
 def invoice_notification(body: InvoiceEvent):
     """
-    回调接口文档定义，实际不会杯调用
+    回调接口文档定义，实际不会调用
     :param body:
     :return:
     """

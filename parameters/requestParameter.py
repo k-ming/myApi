@@ -3,8 +3,6 @@ from datetime import datetime
 from pydantic import BaseModel
 from fastapi.encoders import jsonable_encoder
 
-from src.requestBody import Item
-
 """
 1、三种参数：路径参数、查询参数、请求体
 2、查询参数和字符串校验
