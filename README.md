@@ -652,8 +652,50 @@ async def create_schema(id: int,
   }\
 }
 ### 5、表单数据与模型
-- 表单数据
-- 表单模型
+- 表单数据, 直接在查询参数中定义，入参将以表单形式提交
+```python
+@router2.post("/register", name="form表单")
+async def register_form(name: Annotated[str, Form()], age: str = Form(), password: str = Form(), sex: Union[str, None] = None):
+    return name, age
+```
+- 表单模型，可以将一组表单数据定义在模型中，引用模型的时候再定义为表单, 表单模型同样可以禁止额外的数据提交
+```python
+class FormData(BaseModel):
+    username: str
+    password: str
+    model_config = {'extra':'forbid'} # 禁止额外的字段数据
+    
+@router2.post("/login", name='form表单模型', response_model=ResponseForm)
+def login(data: Annotated[FormData, Form()]):
+    return data
+```
 ### 6、文件与表单
-- 文件上传
-- 文件与表单同时存在
+- 文件与表单同时存在, file用于上传较小的文件, 需要注意的是，文件不能与表单模型同时作为参数，表单模型无法被识别成表单格式
+```python
+@router1.post("/files", name="file文件和表单数据")
+def create_file(file: bytes | None = File(description="a file read as byte", default=None), token: str = Form()):
+    return {"len_file": len(file), "token": token}
+```
+- 上传大文件，使用uploadFile
+```python
+@router1.post("/uploadFiles", name="uploadFile上传大文件")
+def create_uploadFile(file: UploadFile | None= File(description="a file read as byte")):
+    return {"file": file.filename}
+```
+- 批量上传文件，用List包裹
+```python
+@router1.post("/moreFiles", name="批量上传文件")
+def create_moreFile(files: List[UploadFile]):
+    return {"files": files}
+```
+### 7、header参数
+### 8、cookie参数
+## 四、响应
+### 1、响应模型
+### 2、响应模型含有默认值
+### 3、include extra
+### 4、多个响应模型
+### 5、模型的继承
+### 6、联合响应模型 typing.Union[model1, model2], pydantic.anyOf
+### 7、约定字典类型的响应
+### 8、响应状态码

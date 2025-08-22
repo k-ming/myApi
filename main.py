@@ -12,12 +12,10 @@ from .dependencies import get_token_header
 from enum import Enum
 import sys, time
 
+import request_body, parameters, formData
 from .internal import admin
-from .auth2 import oauth_token
-from .src import user, requestFormData, invoiceCallBack
-import parameters, request_body
-from .parameters import searchModle, formFile
-from request_body import requestBody, requestExtra
+from .auth2 import oauth_token,user
+from callBack import invoiceCallBack
 from .subapp import subapi  # 引入子应用
 
 app = FastAPI(dependencies=[])
@@ -35,16 +33,17 @@ app.include_router(user.router)
 app.include_router(parameters.router) # 三种参数：路径参数、查询参数、请求体
 app.include_router(parameters.router2) # 查询参数和字符串校验
 app.include_router(parameters.router3) # 路径参数和字符串校验
-app.include_router(searchModle.router) # 查询参数模型化
+app.include_router(parameters.router4) # 查询参数模型化
 app.include_router(request_body.router1) # 请求体-多个参数
 app.include_router(request_body.router2) # 请求体-字段
 app.include_router(request_body.router3) # 请求体-额外的信息，示例和数据类型
+app.include_router(formData.router1) #表单数据
+app.include_router(formData.router2) # 文件上传
 app.include_router(admin.router,
                    prefix='/admin',
                    dependencies=[Depends(get_token_header)],
                    responses={418: {"description": "I'm a teapot"}}, tags=['admin'])
-app.include_router(formFile.router, prefix="/formFile", tags=['Form'])
-app.include_router(requestFormData.router, prefix='/requestFormData', tags=['Form'])
+
 app.include_router(pyDepends.router)
 app.include_router(pyDependYield.router)
 app.include_router(oauth_token.router)
