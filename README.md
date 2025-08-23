@@ -691,11 +691,144 @@ def create_moreFile(files: List[UploadFile]):
 ### 7、header参数
 ### 8、cookie参数
 ## 四、响应
-### 1、响应模型
-### 2、响应模型含有默认值
-### 3、include extra
-### 4、多个响应模型
-### 5、模型的继承
-### 6、联合响应模型 typing.Union[model1, model2], pydantic.anyOf
-### 7、约定字典类型的响应
-### 8、响应状态码
+### 1、响应模型, 需要在装饰器中指定response_model, 则会对响应的结果做验证, 如果响应字段不满足条件，则会提示异常
+```python
+class Goods(BaseModel):
+    name: str
+    description: str | None ="a pretty gift !"
+    price: float = 10.5
+    tags: list[str] | None = None
+
+gifts = {
+    "cat":{"name":"cat", "price":0.0},
+    "dog":{"name":"dog", "price":30.5, "tags":["pretty", "little"]},
+    "polly":{"name":"cat", "price":11.2, "description":"a bird name's"},
+}
+
+@router1.post("/register", name="响应模型", response_model=UserOut )
+async def register(user_in: UserIn = Form()):
+    return UserOut(**user_in.model_dump()) # 将字典 user_in.model_dump() 解包后传给 UserOUT
+```
+### 2、响应模型含有默认值, 在响应模型中定义了默认值，如果入参未提供，则会以默认值返回
+```python
+@router1.post("/create_good", name="响应模型默认值", response_model=Goods )
+async def create_good(name: str):
+    return gifts.get(name)
+```
+> 当输入cats时，响应结果如下，可以看到description 和 tag字段虽然没有入参，响应还是以默认值返回了\
+> {\
+  "name": "cat",\
+  "description": "a pretty gift !",\
+  "price": 0,\
+  "tags": null\
+}
+### 3、响应模型不使用默认值, 使用 response_model_exclude_unset=True, 会以实际返回值返回，而不会返回默认值
+```python
+@router1.get("/get_goods/{name}", name="响应模型不使用默认值", response_model=Goods, response_model_exclude_none=True)
+async def get_good(name: str):
+    return gifts.get(name)
+```
+> 当输入cat时，响应结果如下,除了入参未提供的，都未使用默认值\
+> {\
+  "name": "cat",\
+  "description": "a pretty gift !",\
+  "price": 0\
+}
+### 4、response_model_include =['filed',...], 响应模型只包含模型指定的属性
+```python
+@router1.get("/include", name="响应模型只包含模型指定的属性", response_model=Goods, response_model_include=["name", "tags"])
+async def include(name: str):
+    return gifts.get(name)
+```
+> 访问接口，不论入参是cat、dog、polly, 输出的字段只包含 name、tag\
+> {\
+  "name": "cat",\
+  "tags": null\
+}
+### 4、response_model_exclude=['filed',...], 响应模型排除指定的属性
+```python
+@router1.get("/exclude", name="响应模型排除指定的属性", response_model=Goods, response_model_exclude=["tags", "description"])
+async def exclude(name: str):
+    return gifts.get(name)
+```
+> 访问接口，响应的字段中不包含tags，description\
+> {\
+  "name": "dog",\
+  "price": 30.5\
+}
+### 5、多个模型和模型的继承, 通过模型的继承，可以拥有父模型的字段，注册用户示例中，首先定义了UserBase, UserPassword、UserOut、UserInDb都继承了它，且UserPassword 和 UserInDb 分别定义了自己的字段，通过这种继承可以实现，用户输入密码后，会讲密码转成哈希存入数据库，而，接口响应中，不会返回密码
+```python
+import hashlib
+from fastapi import APIRouter, Form
+from pydantic import BaseModel
+
+
+router2 = APIRouter(
+    prefix="/MoreModel",
+    tags=["多个模型和模型的继承"]
+)
+
+
+class UserBase(BaseModel):
+    username: str
+    email: str | None = None
+    full_name: str | None = None
+
+class UserPassword(UserBase):
+    password: str
+
+class UserOut(UserBase):
+    pass
+
+class UserInDb(UserBase):
+    hashed_password: str
+
+def fake_password_hash(password):
+    return hashlib.sha512(password.encode("UTF-8")).hexdigest()
+
+def fake_save_user(user:UserPassword):
+    password_hashed = fake_password_hash(user.password)
+    # 此处先把 UserPassword 转成json user.model_dump(), 然后再对其解包，传入UserInDb ，相当于 UserInDb 拥有了username、email、full_name、hashed_password 字段
+    user_in_db = UserInDb(**user.model_dump(), hashed_password =password_hashed)
+    print("user info saved  !")
+    return user_in_db
+
+@router2.post("/create_user", response_model=UserOut, name="多个模型和模型的继承")
+def create_user(user: UserPassword = Form()):
+    return fake_save_user(user)
+```
+### 6、联合响应模型 typing.Union[model1, model2]
+- 使用联合响应模型时，响应结果可以匹配model1，model2中的任意一个，当msg有值时，响应会匹配到model2
+```python
+class UserOut1(UserBase):
+    msg: str | None = "user info saved successfully!"
+@router2.post("/register_user", response_model=Union[UserOut, UserOut1] , name="联合响应模型")
+def create_user(user: UserPassword = Form()):
+    saved = fake_save_user(user).model_dump()
+    saved.update(dict(msg="user info saved successfully!"))
+    return saved
+```
+> 响应结果如下：\
+> {\
+  "username": "kingming789",\
+  "email": "dfaagwe",\
+  "full_name": "fadsfa ",\
+  "msg": "user info saved successfully!"\
+}
+### 7、约定字典类型的响应, response_model=dict[str, str | None]
+```python
+@router2.post("/get_user", response_model=dict[str, str | None], name="响应模型定义为字典")
+async def get_user(user: UserPassword = Form()):
+    return {"username": user.username, "email": user.email, "full_name": user.full_name}
+```
+### 8、响应状态码, 可以自定义状态码，可以使用fastapi.status 定义的状态码，比如创建接口响应状态码201
+```python
+from fastapi import status
+@router2.post("/create", name="响应状态码", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+async def create(user: UserPassword = Form()):
+    saved = fake_save_user(user).model_dump()
+    return saved
+```
+> 在swagger页面可以看到提示，创建成功的状态码是201\
+> Code	Description	\
+> 201   Successful Response

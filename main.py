@@ -12,9 +12,8 @@ from .dependencies import get_token_header
 from enum import Enum
 import sys, time
 
-import request_body, parameters, formData
-from .internal import admin
-from .auth2 import oauth_token,user
+import request_body, parameters, formData, responseModel
+from .auth2 import oauth_token,user, admin
 from callBack import invoiceCallBack
 from .subapp import subapi  # 引入子应用
 
@@ -39,6 +38,8 @@ app.include_router(request_body.router2) # 请求体-字段
 app.include_router(request_body.router3) # 请求体-额外的信息，示例和数据类型
 app.include_router(formData.router1) #表单数据
 app.include_router(formData.router2) # 文件上传
+app.include_router(responseModel.router1) # 响应模型
+app.include_router(responseModel.router2) # 多个模型和模型的继承
 app.include_router(admin.router,
                    prefix='/admin',
                    dependencies=[Depends(get_token_header)],
