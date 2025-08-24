@@ -688,8 +688,123 @@ def create_uploadFile(file: UploadFile | None= File(description="a file read as 
 def create_moreFile(files: List[UploadFile]):
     return {"files": files}
 ```
-### 7、header参数
+### 7、Header参数与head参数模型
+- Header参数与Query、Body、Path类似
+- 重复的Header参数
+- Header参数模型
+- header中蛇形命令的转换
 ### 8、cookie参数
+- Cookie参数与Query、Body、Path类似
+```python
+@router2.get("/cookie", name="cookie参数")
+def get_cookie(Adid: Optional[str] = Cookie(None, alias="Adid")):
+    return Adid
+```
+- Cookie参数模型与禁止额外的cookie
+```python
+class CookieModel(BaseModel):
+    domain: str
+    name: str | None = None
+    model_config = {"extra": "forbid"}
+    
+@router2.post("/create_cookie", name="cookie参数模型")
+def create_cookie(my_cookie: CookieModel = Cookie()):
+    return my_cookie
+```
+> 需要注意的是 fastapi 会把cookie识别成查询参数，导致cookie为空，所以使用postman测试，传值在header中，Cookie:Adid=123
+### 9、请求体-更新数据
+- 使用]fastapi.encoders.jsonable_encoder把输入数据转换为以 JSON 格式存储的数据
+```python
+NameDB = {
+    "Lily":{"name":"Lily", "age":35, "email":"Lily366@163.com"},
+    "Piter":{"name":"Piter", "age":32, "tags":["bright", "happy"]},
+    "Join":{"name":"Join", "age":40, "create_at":datetime.now()},
+}
+
+@router4.put("/fullUpdate/", name="全量更新，输入数据转换为JSON 格式存储")
+async def updateData(item_id: str, item: Item):
+    if item_id in NameDB:
+        item_encode = jsonable_encoder(item) # 此处会把 create_at转换成字符串
+        NameDB[item_id]= item_encode
+        return NameDB[item_id]
+    else:
+        return {"msg": "no such item !", "code": 404}
+```
+- 使用path 或者 put 更新部分数据, 需要注意的是，部分更新时，如果模型中定义的是必填项的话，还是不能省略
+```python
+@router4.patch("/patchUpdate/", name="使用patch部分更新数据")
+async def patchUpdate(item_id: str, item: Item ):
+    if item_id in NameDB:
+        update_data = NameDB[item_id]
+        update_model = Item(**update_data) # 使用存在的数据生成一个模型
+        print("update_model:", update_model)
+        update_unset = item.model_dump(exclude_unset=True) # 把入参模型设置为不包含默认值
+        final_data = update_model.model_copy(update=update_unset)  # 使用pedantic的model_copy拷贝模型，并设置更新数据
+        print("final_data:", final_data)
+        NameDB[item_id]= jsonable_encoder(final_data) # 更新数据
+        return NameDB[item_id]
+    else:
+        return {"msg": "no such item !", "code": 404}
+```
+- 使用model_dump(exclude_unset=True)设置入参不包含默认值实现部分更新，使用model_copy(update=update_unset)指定更新源
+```python
+@router4.put("/putPartlyUpdate/", name="使用put实现部分数据更新")
+async def putPartlyUpdate(item_id: str, item: Item):
+    if item_id in NameDB:
+        update_data = NameDB[item_id]
+        update_model = Item(**update_data) # 使用查询到已有的数据生成一个model
+        update_unset = item.model_dump(exclude_unset=True)  # 入参模型设置为不包含默认值
+        final_data = update_model.model_copy(update=update_unset) # 使用model_copy(update=update_unset) 组合数据
+        NameDB[item_id]= jsonable_encoder(final_data)
+        return NameDB[item_id]
+```
+
+### 11、路径操作配置
+- status_code， 响应状态码
+```python
+from fastapi import APIRouter, status
+@router5.get("/item/{item_id}", status_code=status.HTTP_200_OK, summary="状态码")
+async def get_item(item_id: str):
+    if item_id in NameDB:
+        return NameDB[item_id]
+    else:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+```
+- tag标签，用于标记接口, 注意：这里的tags不会覆盖router中tags，你将会看到2组tags接口
+```python
+@router5.get("/detail/{name}", summary="tags和弃用标记", tags=["路径操作配置-弃用标记"], deprecated=True)
+async def get_detail(name: str):
+    if name in NameDB:
+        return NameDB[name]
+    else:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+```
+- description， 接口描述信息
+```python
+@router5.get("/items/", name="描述和响应描述", description="示例描述信息", response_description="响应描述示例")
+async def get_items():
+    return NameDB
+```
+- summery， 接口备注，会和name 的值冲突
+- deprecated, 标记为启用的接口
+- response_description, 描述
+
+
+### 12、错误处理
+- 使用fastapi.HTTPException 处理异常
+- HTTPException 添加响应头
+
+
+
+
+
+
+
+
+
+
+
+
 ## 四、响应
 ### 1、响应模型, 需要在装饰器中指定response_model, 则会对响应的结果做验证, 如果响应字段不满足条件，则会提示异常
 ```python
@@ -832,3 +947,25 @@ async def create(user: UserPassword = Form()):
 > 在swagger页面可以看到提示，创建成功的状态码是201\
 > Code	Description	\
 > 201   Successful Response
+
+
+
+## 五、依赖
+- 函数依赖
+- 类依赖
+- 中间键
+
+
+
+## 六、多应用
+- 子路由
+- 子应用
+- 挂载静态文件
+
+## 七、安全认证
+
+
+## 八、数据库
+
+
+## 
