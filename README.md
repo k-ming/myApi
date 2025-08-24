@@ -1,5 +1,4 @@
 # fastapi 学习
-[TOC]
 ## 一、 启动方式
 ### 1、使用 unicorn 启动
 ```
