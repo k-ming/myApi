@@ -789,21 +789,7 @@ async def get_items():
 - deprecated, 标记为启用的接口
 - response_description, 描述
 
-
-### 12、错误处理
-- 使用fastapi.HTTPException 处理异常
-- HTTPException 添加响应头
-
-
-
-
-
-
-
-
-
-
-
+---
 
 ## 四、响应
 ### 1、响应模型, 需要在装饰器中指定response_model, 则会对响应的结果做验证, 如果响应字段不满足条件，则会提示异常
@@ -948,13 +934,174 @@ async def create(user: UserPassword = Form()):
 > Code	Description	\
 > 201   Successful Response
 
+### 9、错误处理
+- 使用fastapi.HTTPException 处理异常，可以添加状态码status_code, detail='Item not found'，响应头
+fastapi会自动吧raise出异常作为响应返回
+```python
+db = {
+    "Lily":{"name":"Lily", "age":35, "email":"Lily366@163.com"},
+    "Piter":{"name":"Piter", "age":32, "tags":["bright", "happy"]},
+    "Join":{"name":"Join", "age":40, "create_at":datetime.now()},
+}
 
+@router3.get("/get_name", name="HTTPException异常抛出")
+async def get_name(name : str):
+    if name in db:
+        return db[name]
+    raise HTTPException(status_code=404, detail="name not found!")
+```
+> 当入参位 kait 时，会响应 name not found!
+> {
+  "detail": "name not found!"
+}
+- 自定义异常处理,使用exception_handler装饰即可
+```python
+class UnicornException(Exception): # 自定义异常
+    def __init__(self, name:str):
+        self.name = name
+
+@subApp1.exception_handler(UnicornException)
+async def unicorn_exception_handler(request: Request, exc: UnicornException):
+    return JSONResponse(
+        status_code=418,
+        content={"message": f"{exc.name} Unicorn exception occurred!"},
+    )
+
+@subApp1.get("/get_exception", name="使用exception_handler添加自定义异常")
+async def get_exception(name: str):
+    if name in db:
+        return db[name]
+    raise UnicornException(name)
+
+```
+- 使用 RequestValidationError 的请求体
+```python
+@subApp1.exception_handler(RequestValidationError) 
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
+    )
+
+class Item(BaseModel):
+    title: str
+    size: int
+
+@subApp1.post("/items", name="使用 RequestValidationError 的请求体")
+async def create_item(item: Item):
+    return item
+```
+> 输入异常的请求体，可以看到body信息被打印出来了
+>   "body": {
+    "title": "hdkfjalk",
+    "size": "kljd"
+  }
+- 异常处理的重复使用，支持import导入
+```python
+from fastapi.exception_handlers import validation_exception_handler
+```
 
 ## 五、依赖
-- 函数依赖
-- 类依赖
-- 中间键
+- 函数依赖, 函数的返回值需要与参数定义的类型一致
+```python
+def common_parameters(q:Union[str,None] = None, skip: int = 0, limit: int = 100):
+    return {"skip": skip, "limit": limit, "q": q}
 
+@router1.get("/dep_func")
+async def read_params(commons: dict = Depends(common_parameters)):
+    """
+    - 普通函数作为依赖
+    - **commons**: 注入的依赖 common_parameters
+    """
+    return commons
+```
+- 类依赖, 使用类的构造方法进行传参数
+```python
+class CommonQueryParams():
+    def __init__(self, q:Union[str,None] = None, skip: int = 0, limit: int = 100):
+        self.q = q
+        self.skip = skip
+        self.limit = limit
+
+@router1.get("/dep_class")
+async def read_params(commons: CommonQueryParams = Depends()):
+    """
+    - 使用类作为依赖
+    - **commons**: 注入的依赖 CommonQueryParams 是一个类
+    """
+    response = {}
+    if commons.q:
+        response.update({"q": commons.q})
+    items = fake_items_db[commons.skip : commons.skip + commons.limit]
+    response.update({"items": items})
+    return response
+```
+- 无返回值的依赖，添加在装饰器中
+- 装饰器中同时添加多个依赖
+```python
+def pre_depends():
+    print("pre_depends, no return !")
+
+def verify_token(x_token:str = Header()):
+    if x_token != "x-token":
+        raise HTTPException(status_code=400, detail="token is invalid!")
+    return x_token
+
+@router1.get("/dep_decorator", dependencies=[Depends(pre_depends), Depends(verify_token)], name="装饰器中添加多个依赖，依赖项可以没有返回值")
+async def read_params():
+    """
+    - **路径装饰器依赖:** 被依赖的函数可以raise 异常，可以return返回值值，但是被装饰的方法无法使用返回值
+    """
+    return {"items": fake_items_db}
+```
+- 使用yield依赖项
+```python
+data = {
+    "plumbus": {"description": "Freshly pickled plumbus", "owner": "Morty"},
+    "portal-gun": {"description": "Gun to create portals", "owner": "Rick1"},
+}
+
+
+class OwnerError(Exception):
+    pass
+
+
+def get_username():
+    try:
+        yield "Rick"
+    except OwnerError as e:
+        raise HTTPException(status_code=400, detail=f"Owner error: {e}")
+
+
+@router2.get("/yield_dps/{item_id}", name="使用yield的依赖项")
+def get_item(item_id: str, username: Annotated[str, Depends(get_username)]):
+    if item_id not in data:
+        raise HTTPException(status_code=404, detail="Item not found")
+    item = data[item_id]
+    if item["owner"] != username:
+        raise OwnerError(username)
+    return item
+```
+- 全局依赖，在主app中指定依赖, 如 app = FastAPI(dependencies=[Depends(oauth_token)])
+则所有的接口都受影响
+- 中间键, 当页面向服务端请求js文件时，可能存在跨域，此时通过app配置中间键可以解决
+```python
+subApp1 = FastAPI(
+    prefix="/exception",
+    tags=["异常处理"]
+)
+
+origins = {
+    "http://127.0.0.1:8099",
+}
+subApp1.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
 
 
 ## 六、多应用

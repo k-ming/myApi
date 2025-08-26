@@ -7,12 +7,11 @@ Created on Wed Jan 15 19:57:49 2025
 
 from fastapi import FastAPI, Depends, Request
 from starlette.staticfiles import StaticFiles
-from .depends import pyDepends, pyDependYield
 from .dependencies import get_token_header
 from enum import Enum
 import sys, time
 
-import request_body, parameters, formData, responseModel, requestHeadersAndCookies
+import request_body, parameters, formData, responseModel, requestHeadersAndCookies, depends
 from .auth2 import oauth_token,user, admin
 from callBack import invoiceCallBack
 from .subapp import subapi  # 引入子应用
@@ -40,17 +39,17 @@ app.include_router(request_body.router4) # 请求体-更新数据
 app.include_router(request_body.router5) # 路径操作配置
 app.include_router(formData.router1) #表单数据
 app.include_router(formData.router2) # 文件上传
-app.include_router(requestHeadersAndCookies.router1)
-app.include_router(requestHeadersAndCookies.router2)
+app.include_router(requestHeadersAndCookies.router1) #请求头
+app.include_router(requestHeadersAndCookies.router2) #cookie
 app.include_router(responseModel.router1) # 响应模型
 app.include_router(responseModel.router2) # 多个模型和模型的继承
+app.mount("/subApp1", responseModel.subApp1) # 异常处理
+app.include_router(depends.router1) # 依赖注入
+app.include_router(depends.router2) # 依赖注入- yield
 app.include_router(admin.router,
                    prefix='/admin',
                    dependencies=[Depends(get_token_header)],
                    responses={418: {"description": "I'm a teapot"}}, tags=['admin'])
-
-app.include_router(pyDepends.router)
-app.include_router(pyDependYield.router)
 app.include_router(oauth_token.router)
 app.include_router(invoiceCallBack.router, prefix='/Invoice', tags=['开发票回调'])
 
