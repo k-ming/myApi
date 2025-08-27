@@ -1103,16 +1103,35 @@ subApp1.add_middleware(
 )
 ```
 
-
 ## 六、多应用
-- 子路由
-- 子应用
-- 挂载静态文件
+- 子路由，使用fastapi.ApiRouter定义子路由， 然后在app中导入该路由 app.includer();
+- 子应用, 使用app.mount("/subapp", subapi)挂载子应用，子应用的swagger文档路径 域名+subapp/doc
+- 挂载静态文件, 使用app.mount()挂载静态文件目录，如下
+```python
+app.mount("/static, StaticFiles(directory="myApi/static"), name="static") # 挂载静态文件
+```
+> 则静态文件访问地址是 域名+/static
 
-## 七、安全认证
+## 七、后台任务,backGroundTasks
+```python
+from fastapi import APIRouter,BackgroundTasks
+
+router = APIRouter(
+    prefix="/backgroundTasks",
+    tags=["后台任务"]
+)
+
+def write_notification(email: str, message=''):
+    with open('./log.txt', mode='w') as email_file:
+        content = f'notification for {email}: {message}'
+        email_file.write(content)
 
 
-## 八、数据库
+@router.post("/send-notification/{email}")
+async def send_notification(email:str, background_tasks: BackgroundTasks):
+    background_tasks.add_task(write_notification, email=email, message="some notification")
+    return {"message": "Notification sent in the background"}
+```
+## 八、安全认证
 
-
-## 
+## 九、数据库

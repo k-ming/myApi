@@ -11,7 +11,7 @@ from .dependencies import get_token_header
 from enum import Enum
 import sys, time
 
-import request_body, parameters, formData, responseModel, requestHeadersAndCookies, depends
+import request_body, parameters, formData, responseModel, requestHeadersAndCookies, depends, backGroundTask
 from .auth2 import oauth_token,user, admin
 from callBack import invoiceCallBack
 from .subapp import subapi  # 引入子应用
@@ -46,6 +46,7 @@ app.include_router(responseModel.router2) # 多个模型和模型的继承
 app.mount("/subApp1", responseModel.subApp1) # 异常处理
 app.include_router(depends.router1) # 依赖注入
 app.include_router(depends.router2) # 依赖注入- yield
+app.include_router(backGroundTask.router) # 后台任务
 app.include_router(admin.router,
                    prefix='/admin',
                    dependencies=[Depends(get_token_header)],
