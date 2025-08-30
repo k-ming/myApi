@@ -1133,5 +1133,10 @@ async def send_notification(email:str, background_tasks: BackgroundTasks):
     return {"message": "Notification sent in the background"}
 ```
 ## 八、安全认证
+- OAuth2 定义，作为依赖项，指定 tokenUrl="token" 
+- "token" 接口实现帐号密码登录
+- 检查 username 和 password，并返回令牌 Token
+- API请求校验，核对请求头的值是不是由 Bearer ＋ 令牌组成， 并返回令牌字符串（str）。
+- 实现用户模型，获取当前用户
 
 ## 九、数据库
