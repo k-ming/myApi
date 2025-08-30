@@ -3,7 +3,7 @@ from fastapi import Depends, APIRouter, Cookie
 from fastapi.params import Header
 from fastapi.exceptions import HTTPException
 
-router = APIRouter(
+router1 = APIRouter(
     tags=["依赖注入"],
     prefix="/pyDepends",
 )
@@ -11,7 +11,7 @@ router = APIRouter(
 def common_parameters(q:Union[str,None] = None, skip: int = 0, limit: int = 100):
     return {"skip": skip, "limit": limit, "q": q}
 
-@router.get("/dep_func")
+@router1.get("/dep_func", name="函数作为依赖")
 async def read_params(commons: dict = Depends(common_parameters)):
     """
     - 普通函数作为依赖
@@ -27,7 +27,7 @@ class CommonQueryParams():
         self.skip = skip
         self.limit = limit
 
-@router.get("/dep_class")
+@router1.get("/dep_class", name="类作为依赖")
 async def read_params(commons: CommonQueryParams = Depends()):
     """
     - 使用类作为依赖
@@ -51,19 +51,23 @@ def query_or_cookie_extractor(
         return last_query
     return q
 
-@router.get("/dep_sub")
+@router1.get("/dep_sub", name="多重依赖，子依赖")
 async def read_params(query_or_default: query_or_cookie_extractor=Depends()):
     """
     - **query_or_default**: 多重依赖，子依赖
     """
     return {"query_or_default": query_or_default}
 
+
+def pre_depends():
+    print("pre_depends, no return !")
+
 def verify_token(x_token:str = Header()):
     if x_token != "x-token":
         raise HTTPException(status_code=400, detail="token is invalid!")
     return x_token
 
-@router.get("/dep_decorator", dependencies=[Depends(verify_token)])
+@router1.get("/dep_decorator", dependencies=[Depends(pre_depends), Depends(verify_token)], name="装饰器中添加多个依赖，依赖项可以没有返回值")
 async def read_params():
     """
     - **路径装饰器依赖:** 被依赖的函数可以raise 异常，可以return返回值值，但是被装饰的方法无法使用返回值

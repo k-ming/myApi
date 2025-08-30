@@ -1,16 +1,14 @@
-'''
-查询参数模型
-'''
 from typing import Annotated, Literal
-from fastapi import APIRouter, Depends, Query
-from ..dependencies import get_token_header
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
+"""
+查询参数模型
+"""
 
-router = APIRouter(
+router4 = APIRouter(
     prefix="/search_model",
-    tags=["search_model"],
+    tags=["查询参数模型"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(get_token_header)],
 )
 
 class FilterParams(BaseModel):
@@ -20,7 +18,7 @@ class FilterParams(BaseModel):
     tags: list[str] = []
     model_config = {"extra": "forbid"} # 禁止额外的参数
 
-@router.get('/items')
+@router4.get('/items', name='查询参数模型')
 async def read_items(filter_query: Annotated[FilterParams, Query()] ):
     """
     :param filter_query: 特殊类型注解 Annotated [T, x]
