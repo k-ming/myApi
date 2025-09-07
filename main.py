@@ -11,8 +11,9 @@ from .dependencies import get_token_header
 from enum import Enum
 import sys, time
 
-import request_body, parameters, formData, responseModel, requestHeadersAndCookies, depends, backGroundTask
-from .auth2 import oauth_token,user, admin
+import request_body, parameters, formData, responseModel, \
+    requestHeadersAndCookies, depends, backGroundTask, auth2
+# from .auth2 import oauth_token,user, admin
 from callBack import invoiceCallBack
 from .subapp import subapi  # 引入子应用
 
@@ -27,7 +28,7 @@ sys.modules["fastapi.openapi.docs"].get_swagger_ui_html.__kwdefaults__["swagger_
 # 挂载子应用
 app.mount("/subapp", subapi)
 
-app.include_router(user.router)
+# app.include_router(user.router)
 app.include_router(parameters.router) # 三种参数：路径参数、查询参数、请求体
 app.include_router(parameters.router2) # 查询参数和字符串校验
 app.include_router(parameters.router3) # 路径参数和字符串校验
@@ -47,11 +48,13 @@ app.mount("/subApp1", responseModel.subApp1) # 异常处理
 app.include_router(depends.router1) # 依赖注入
 app.include_router(depends.router2) # 依赖注入- yield
 app.include_router(backGroundTask.router) # 后台任务
-app.include_router(admin.router,
-                   prefix='/admin',
-                   dependencies=[Depends(get_token_header)],
-                   responses={418: {"description": "I'm a teapot"}}, tags=['admin'])
-app.include_router(oauth_token.router)
+app.include_router(auth2.password_router) # password认证
+app.include_router(auth2.jwtToken_router) # jwtToken认证
+# app.include_router(admin.router,
+#                    prefix='/admin',
+#                    dependencies=[Depends(get_token_header)],
+#                    responses={418: {"description": "I'm a teapot"}}, tags=['admin'])
+# app.include_router(oauth_token.router)
 app.include_router(invoiceCallBack.router, prefix='/Invoice', tags=['开发票回调'])
 
 
