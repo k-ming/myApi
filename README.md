@@ -1133,11 +1133,233 @@ async def send_notification(email:str, background_tasks: BackgroundTasks):
     return {"message": "Notification sent in the background"}
 ```
 ## 八、安全认证
+### 1、基于username 和 password 的认证
 - OAuth2 密码模式认证，使用fastApi的 OAuth2PasswordBearer
 - OAuth2PasswordBearer是接受URL作为参数的一个类，客户端向指定的URL发送username 和 password
+```python
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+auth_schema = OAuth2PasswordBearer(tokenUrl="/auth/token") # 指定客户端用户名密码登录的路径
+```
 - OAuth2PasswordBearer并不会创建URL接口，只是表明客户端的请求路径URL
-- 收到请求，fastapi会检查Authorization头信息，如果没有Authorization，返回异常
-- API请求校验，核对请求头的值是不是由 Bearer ＋ 令牌组成， 并返回令牌字符串（str）。
-- 实现用户模型，获取当前用户
+```python
+# 获取token接口
+@password_router.post("/token", summary="用户名密码登录")
+def get_token(form_data: OAuth2PasswordRequestForm =Depends()):
+    if form_data.username in fake_users_db:
+        user = UserInDB(**fake_users_db[form_data.username])
+        hashed_password = fake_hash_password(form_data.password)
+        if not hashed_password == user.hashed_password:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="incorrect username or password") # 密码不正确
+        else:
+            return {"access_token": user.username, "token_type": "bearer"}
+    else:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="incorrect username or password") # 用户名不存在
 
+```
+- 定义基础方法
+```python
+# 模拟密码hash加密
+def fake_hash_password(password: str) -> str:
+    return "fakehashed" + password
+
+# 获取用户
+def get_user(db: fake_users_db, username: str) -> UserInDB:
+    if username in db:
+        return UserInDB(**db[username])
+    else:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+# 模拟解析token, 注意这里的token就是用户名username，所以可以直接调用 get_user方法获取【
+def fake_decode_token(token: str) -> UserInDB:
+    user = get_user(fake_users_db, token)
+    return user
+```
+- 实现用户模型，获取当前用户
+```python
+""" 模拟数据库用户 """
+fake_users_db = {
+    "john sonw":{
+        "username": "john sonw",
+        "full_name": "john sonw",
+        "email": "jsonsonw@example.com",
+        "hashed_password": "fakehashedsecret",  # 模拟hash加密后的密码
+        "is_active": True,  # 是否活跃用户
+    },
+    "alice":{
+        "username": "alice",
+        "full_name": "alice",
+        "email": "alice@example.com",
+        "hashed_password": "fakehashedsecret2",
+        "is_active": False,
+    }
+}
+# 定义基础user模型
+class User(BaseModel):
+    username: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+# 定义写入数据库包含密码的模型userindb
+
+class UserInDB(User):
+    hashed_password: str
+    
+# 获取当前用户， 需要依赖auth_schema返回的token
+def get_current_user(token: str = Depends(auth_schema)) -> User:
+    user = fake_decode_token(token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"}, # OAuth的标记，非强制
+        )
+    else:
+        return user
+
+# 获取活跃的用户
+def get_active_user(token: str = Depends(auth_schema)) -> User:
+    user = get_current_user(token)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="incorrect username or password")
+    else:
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user")
+        return user
+
+# 接口实现
+@password_router.get("/users/me", summary="获取活跃用户")
+def read_users_me(current_user: User = Depends(get_active_user)):
+    return  current_user
+```
+### 2、基于jwtToken的认证
+- 更新fake_user_db 中 hashed_password
+```python
+""" 模拟数据库用户, 更新用户hash密码 """
+fake_users_db.update({
+    "john sonw":{
+        "username": "john sonw",
+        "full_name": "john sonw",
+        "email": "jsonsonw@example.com",
+        "hashed_password": "$2b$12$c0hWVUwaIKNj9ZgZ0jE6HOd1wYZP336am1dQz6YrQAPIYVH1mIHde",  # 可以调用 get_password_hash 方法获取
+        "is_active": True,  # 是否活跃用户
+    },
+    "alice":{
+        "username": "alice",
+        "full_name": "alice",
+        "email": "alice@example.com",
+        "hashed_password": "$2b$12$K.SM0ROczdZ3JIYduHnX5emygoYCvDTUj8J6DmVEOkss3Qu2rq3ki",
+        "is_active": False,
+    }
+})
+```
+- 定义jwtToken返回模型
+```python
+class Token(BaseModel):
+    access_token: str
+    token_type: Optional[str] = "bearer"
+```
+- 定义基础方法、密码hash、密码hash校验
+```python
+# password 校验
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# 生成hash
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+# 校验hash密码
+def verify_password(plan_password: str, hashed_password: str):
+    return pwd_context.verify(plan_password, hashed_password)
+```
+- 定义token获取的URL
+```python
+auth_schema = OAuth2PasswordBearer(tokenUrl="/auth/jwt/token") # 指定客户端用户名密码登录的路径
+```
+- 基础方法，获取用户、校验用户名和密码
+```python
+# 获取用户
+def jwt_get_user(db:fake_users_db, username: str):
+    if username in db:
+        return UserInDB(**db[username])
+    else:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid user")
+
+# 校验用户名和密码,返回bool值和user模型
+def jwt_authenticate_user(db:fake_users_db, username: str, password: str):
+    user = jwt_get_user(db, username)
+    if not user:
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+    return user
+```
+- 基础方法，生成access_token
+```python
+# 生成access_toke
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+        to_encode.update({"exp": expire})
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(payload=to_encode, key=SECRET_KEY, algorithm="HS256",)
+    return encoded_jwt
+```
+- 实现token接口
+```python
+# 登录成功返回token
+@jwtToken_router.post("/jwt/token", summary="登录成功获取token", response_model=Token)
+async def login_for_jwt_token(form_data: OAuth2PasswordRequestForm = Depends())-> dict:
+    user = jwt_authenticate_user(fake_users_db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    expire = timedelta(minutes=EXPIRED_TIMEDELTA)
+    access_token = create_access_token({"sub": user.username}, expires_delta=expire)
+    return {"access_token": access_token, "token_type": "bearer"}
+```
+- 基础方法、获取当前用户、获取激活用户
+```python
+# 获取当前用户, 解析token
+async  def jwt_get_current_user(token: str = Depends(auth_schema)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except jwt.ExpiredSignatureError:
+        raise credentials_exception
+    user = jwt_get_user(fake_users_db, username)
+    if not user:
+        raise credentials_exception
+    return user
+
+
+# 获取活跃的用户
+async def jwt_get_current_active_user(current_user: User =Depends(jwt_get_current_user)):
+    if current_user.is_active:
+        return current_user
+    raise  HTTPException(status_code=400, detail="Inactive user")
+
+
+@jwtToken_router.get("/jwt/user/me", summary="获取当前用户", response_model=User)
+async def read_users_me(current_user: User = Depends(jwt_get_current_user)):
+    return current_user
+
+@jwtToken_router.post("/jwt/user/active", response_model=User, summary="获取活跃的用户")
+async  def read_users_active(active_user: User = Depends(jwt_get_current_active_user)):
+    return active_user
+```
 ## 九、数据库

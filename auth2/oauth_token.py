@@ -135,14 +135,14 @@ async def login_for_access_token(
     return Token(access_token=access_token, token_type="bearer")
 
 
-@router.get("/user/me/", response_model=User)
+@router.get("/user/me/", response_model=User, summary="获取当前用户")
 async def read_users_me(
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     return current_user
 
 
-@router.get("/user/me/items/")
+@router.get("/user/me/items/", summary="获取活跃的用户", response_model=User)
 async def read_own_items(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
