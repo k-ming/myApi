@@ -1,90 +1,21 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Feb 26 01:37:22 2025
-
-@author: hb32366
-"""
-
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Field, SQLModel, create_engine, select, Session
+from contextlib import asynccontextmanager
 from typing import Annotated
+from fastapi import APIRouter, Query
+from .db_init import create_db_and_tables, SessionDep
+from .model import UserPub, User, UserCreate, UserUpdate
+from fastapi.exceptions import HTTPException
+from sqlmodel import select
 
-router = APIRouter()
-
-class UserBase(SQLModel):
-    """
-    定义基础数据模型（不含table=True的都是数据模型），后面的创建、更新、查询表模型继承于此
-    """
-    name: str = Field(index=True)
-    age: int | None = Field(default=None, index=True)
-
-
-class User(UserBase, table=True):
-    """
-    定义User表模型， 继承自UserBase
-    """
-    id: int | None = Field(default=None, primary_key=True)
-    secret_name: str
-
-
-class UserPub(UserBase):
-    """
-    定义UserPub数据模型，继承自UserBase, 用于返回给客户端，但是它不包含 secret_name，且重新声明了id，id是必须的
-    """
-    id: int
-
-
-class UserCreate(UserBase):
-    """
-    定义UserCreate数据模型，继承自UserBase， 它继承了 name, age字段，且声明了必选字段secret_name， 用于验证客户数据的模型
-    """
-    secret_name: str
-    type: str | None = Field(default='user')
-    model_config = {
-        'json_schema_extra': {
-            'example': {
-                'name': 'user',
-                'age': 18,
-                'secret_name': 'user',
-                'type': 'manage'
-            }
-        }
-    }
-
-
-class UserUpdate(UserBase):
-    """
-    定义UserUpdate数据模型，用于更新数据，虽然它继承自UserBase，但是它所有字段都重新定义，且可选
-    """
-    name: str | None = None
-    age: int | None = None
-    secret_name: str | None = None
-
-
-dev_host = 'ec2-78-12-183-10.mx-central-1.compute.amazonaws.com'
-test_host = 'mysql'
-
-sql_url = "mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4".format('test', '123456', '%s:3306' % dev_host, 'myApi')
-# 注意推上GitHub时host要修改成功mysql容器名称mysql， 因为时容器间通信，dev本地调试时改成148.100.112.145:3306
-engine = create_engine(sql_url, echo=True, pool_size=20, max_overflow=10, pool_recycle=3600) # 设置链接池大小，最大溢出数，回收时长
-
-
-def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
-SessionDep = Annotated[Session, Depends(get_session)]
-
-
-@router.on_event("startup")
-def on_startup():
+@asynccontextmanager
+async def lifespan(app:APIRouter):
     create_db_and_tables()
+    yield
+
+router = APIRouter(
+    prefix="/users",
+    tags=["mysql数据库"],
+    lifespan=lifespan
+)
 
 
 @router.post("/user/", tags=["users"], response_model=UserPub)

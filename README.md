@@ -1363,3 +1363,263 @@ async  def read_users_active(active_user: User = Depends(jwt_get_current_active_
     return active_user
 ```
 ## 九、数据库
+### 1、创建mysqlDB包，将会创建3个文件，分别用于定义model，数据库初始化，API接口
+- 定义基础SQLModel UserBase, SQLModel与BaseModel类似，Field与Path、Query、Body类似
+```python
+from sqlmodel import Field, SQLModel
+
+class UserBase(SQLModel):
+    """
+    定义基础数据模型，后面的创建、更新、查询表模型继承于此
+    """
+    name: str = Field(index=True)
+    age: int | None = Field(default=None, index=True)
+```
+
+- 定义写在表里面的数据模型, 关键参数 table=True
+```python
+class User(UserBase, table=True):
+    """
+    定义User表模型， 继承自UserBase, （不含table=True的都是数据模型）
+    """
+    id: int | None = Field(default=None, primary_key=True)
+    secret_name: str
+```
+ 
+- 定义UserPub数据模型，继承自UserBase, 用于返回给客户端，但是它不包含 secret_name，且重新声明了id，id是必须的
+```python
+class UserPub(UserBase):
+    id: int
+```
+
+- 定义UserCreate数据模型，继承自UserBase， 它继承了 name, age字段，且声明了必选字段secret_name， 用于验证创建用户数据的模型, 并在model_config中定义输出示例
+```python
+class UserCreate(UserBase):
+    secret_name: str
+    type: str | None = Field(default='user')
+    model_config = {
+        'json_schema_extra': {
+            'example': {
+                'name': 'user',
+                'age': 18,
+                'secret_name': 'user',
+                'type': 'manage'
+            }
+        }
+    }
+```
+
+- 定义UserUpdate数据模型，用于更新数据，虽然它继承自UserBase，但是它所有字段都重新定义，且可选更新
+```python
+class UserUpdate(UserBase):
+    name: str | None = None
+    age: int | None = None
+    secret_name: str | None = None
+```
+### 2、定义数据初始化相关变量和方法
+- 设置数据库连接, 并创建engine
+```python
+# 设置数据库连接host
+dev_host = 'ec2-78-12-183-10.mx-central-1.compute.amazonaws.com'
+test_host = 'mysql'
+
+# 设置数据库engine的URL
+sql_url = "mysql+pymysql://{}:{}@{}/{}?charset=utf8mb4".format('test', '123456', '%s:3306' % dev_host, 'myApi')
+# 注意推上GitHub时host要修改成功mysql容器名称mysql， 因为时容器间通信，dev本地调试时改成148.100.112.145:3306
+engine = create_engine(sql_url, echo=True, pool_size=20, max_overflow=10, pool_recycle=3600) # 设置链接池大小，最大溢出数，回收时长
+```
+- 设置数据库初始化操作，和会话获取
+```python
+# 创建数据库和数据表
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
+
+# 获取数据会话
+def get_session():
+    with Session(engine) as session:
+        yield session
+
+SessionDep = Annotated[Session, Depends(get_session)]
+```
+### 3、实现用户的增删查改接口
+- 使用 FastAPI 应用的 lifespan 参数和“上下文管理器”来定义这个数据库启动和关闭逻辑。
+```python
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app:APIRouter):
+    create_db_and_tables()
+    yield
+
+router = APIRouter(
+    prefix="/users",
+    tags=["mysql数据库"],
+    lifespan=lifespan
+)
+```
+- user新增接口
+```python
+@router.post("/user/", tags=["users"], response_model=UserPub)
+def create_user(user: UserCreate, session: SessionDep) -> User:
+    """
+    response_model=UserPub 用于返回给客户端数据模型，会隐藏secret_name字段
+    user: UserCreate 创建数据模型，拥有name,age,secret_name字段
+    :param user: 用户model
+    :param session: 获取数据库回话
+    :return: 用户model
+    """
+    db_user = User.model_validate(user)
+    try:
+        session.add(db_user)
+        session.commit()
+        session.refresh(db_user)
+        return db_user
+    except Exception as e: # 增加try, 捕获丢失链接异常，重试
+        if 'Lost connection ' in str(e):
+            session.add(db_user)
+            session.commit()
+            session.refresh(db_user)
+            return db_user
+        raise e
+```
+- user查询接口
+```python
+@router.get("/users/", tags=["users"], response_model=list[UserPub])
+async def read_users(session: SessionDep, offset=0, limit: Annotated[int, Query(le=100)] = 100, ) -> list[UserPub]:
+    """
+    response_model=list[UserPub] 返回值隐藏了secret_name
+    :param session:
+    :param offset:
+    :param limit:
+    :return:
+    """
+    user_list = session.exec(select(User).offset(offset).limit(limit)).all()
+    return user_list
+
+# 查询单个用户
+@router.get("/users/{user_id}", tags=["users"], response_model=UserPub)
+async def read_user(user_id: int, session: SessionDep) -> UserPub:
+    """
+    查询单个用户
+    :param user_id:
+    :param session:
+    :return:
+    """
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+```
+- user更新接口
+```python
+@router.patch("/users/{user_id}", tags=["users"], response_model=UserPub)
+def update_user(user_id: int, user: UserUpdate, session: SessionDep) -> UserPub:
+    """
+    更新单个用户
+    :param user_id:
+    :param user:
+    :param session:
+    :return:
+    """
+    user_db = session.get(User, user_id)
+    if not user_db:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_data = user.model_dump(exclude_unset=True)
+    user_db.sqlmodel_update(user_data)
+    session.add(user_db)
+    session.commit()
+    session.refresh(user_db)
+    return user_db
+```
+- user删除接口
+```python
+@router.delete("/users/{user_id}", tags=["users"])
+def delete_user(user_id: int, session: SessionDep):
+    """
+    删除单个用户, 无响应model
+    :param user_id:
+    :param session:
+    :return:
+    """
+    user_db = session.get(User, user_id)
+    if not user_db:
+        raise HTTPException(status_code=404, detail="User not found")
+    session.delete(user_db)
+    session.commit()
+    return {"ok": True}
+```
+
+## 十、接口回调
+### 1、异步处理时经常会回调请求方，下面用开发票的例子说明
+- 定义发票数据模型
+```python
+router = APIRouter()
+
+
+class Invoice(BaseModel):
+    id: str
+    title: Union[str, None] = None
+    customer: str
+    total: float
+```
+- 定义发票创建成功响应模型
+```python
+class InvoiceEvent(BaseModel):
+    description: str
+    paid: bool
+```
+- 定义客户端接收回调的数据模型
+```python
+class InvoiceEventReceived(BaseModel):
+    ok: bool
+```
+- 定义客户端接收回调的接口
+```python
+
+@router.post("/get/{invoice_id}", response_model=InvoiceEventReceived)
+def receive_invoice_event(invoice_id: str, body: InvoiceEvent):
+    """
+    用于模拟客户端接收回调
+    :param invoice_id:
+    :param body:
+    :return:
+    """
+    return {"ok": True}
+```
+
+- 回调接口文档定义，实际不会调用
+```python
+@invoice_callBack.post("{$callback_url}/Invoice/get/{$request.body.id}", response_model=InvoiceEventReceived)
+def invoice_notification(body: InvoiceEvent):
+    pass
+```
+
+- 创建发票，并实现回调, 这里要使用httpx.AsyncClient()进行请求
+```python
+@router.post("/invoices", callbacks=invoice_callBack.routes)
+async def create_invoice(invoice: Invoice, callback_url: Union[HttpUrl, None] = None):
+    """
+    创建发票，并实现回调
+    :param invoice:
+    :param callback_url:
+    :return:
+    """
+    print(f"[主接口]收到发票请求 {invoice}]")
+    event_data = {
+        "description": f"Payment for {invoice.id} successfully",
+        "paid": True
+    }
+    # 如果调用方提供了回调地址，则发送真正的 http 回调
+    if callback_url:
+        callback_full_url = f"{callback_url}Invoice/get/{invoice.id}"
+        print(f"[主接口]正在回调{callback_full_url}")
+        async with httpx.AsyncClient() as client:
+            r = await client.post(callback_full_url, json=event_data)
+        print(f"[主接口]回调响应:{r.status_code}{r.text}")
+        return {
+            "msg": "Invoice processed and callback sent",
+            "callback_status": r.status_code,
+            "callback_response": r.json()
+        }
+    return {"message": "Invoice created"}
+```

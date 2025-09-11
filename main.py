@@ -5,15 +5,13 @@ Created on Wed Jan 15 19:57:49 2025
 @author: hb32366
 """
 
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Request
 from starlette.staticfiles import StaticFiles
-from .dependencies import get_token_header
 from enum import Enum
 import sys, time
 
 import request_body, parameters, formData, responseModel, \
-    requestHeadersAndCookies, depends, backGroundTask, auth2
-# from .auth2 import oauth_token,user, admin
+    requestHeadersAndCookies, depends, backGroundTask, auth2, mysqlDB
 from callBack import invoiceCallBack
 from .subapp import subapi  # 引入子应用
 
@@ -50,11 +48,7 @@ app.include_router(depends.router2) # 依赖注入- yield
 app.include_router(backGroundTask.router) # 后台任务
 app.include_router(auth2.password_router) # password认证
 app.include_router(auth2.jwtToken_router) # jwtToken认证
-# app.include_router(admin.router,
-#                    prefix='/admin',
-#                    dependencies=[Depends(get_token_header)],
-#                    responses={418: {"description": "I'm a teapot"}}, tags=['admin'])
-# app.include_router(oauth_token.router)
+app.include_router(mysqlDB.router)  # mysql数据库操作
 app.include_router(invoiceCallBack.router, prefix='/Invoice', tags=['开发票回调'])
 
 
